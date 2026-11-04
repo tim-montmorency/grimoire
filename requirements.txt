@@ -1,0 +1,4 @@
+# Changer la version ici change la version partout (au prochain build des cours)
+# Zensical 0.1.0 (ligne de versions stable) sort le 5 novembre 2026 : passer à « zensical==0.1.0 » après validation.
+# Garder une version exacte : tous les cours construisent alors avec la même version.
+zensical==0.0.74

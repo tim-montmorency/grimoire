@@ -1,0 +1,75 @@
+# =============================================================================
+#  Workflow réutilisable
+#  Il n'est jamais lancé directement. Chaque répertoire de cours l'appelle avec
+#
+#    jobs:
+#      publier:
+#        uses: tim-montmorency/grimoire/.github/workflows/build.yml@main
+#        permissions:
+#          contents: read
+#          pages: write
+#          id-token: write
+#
+#  Les permissions doivent être accordées par le cours : un workflow réutilisable
+#  ne peut pas s'en donner plus que ce que son appelant lui accorde.
+#
+# =============================================================================
+name: Construire et publier un cours
+
+on:
+  workflow_call:
+    inputs:
+      grimoire-ref:
+        description: "Branche ou étiquette du grimoire à utiliser (ex. main, v1)"
+        type: string
+        default: main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le cours
+        uses: actions/checkout@v7
+
+      - name: Récupérer le grimoire dans _grimoire/
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/grimoire
+          ref: ${{ inputs.grimoire-ref }}
+          path: _grimoire
+
+      - name: Installer Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: _grimoire/requirements.txt
+
+      - name: Installer Zensical (version fixée par le grimoire)
+        run: pip install -r _grimoire/requirements.txt
+
+      - name: Restaurer le cache de build incrémental
+        uses: actions/cache@v6
+        with:
+          path: .cache
+          key: zensical-${{ hashFiles('_grimoire/requirements.txt') }}-${{ github.sha }}
+          restore-keys: zensical-${{ hashFiles('_grimoire/requirements.txt') }}-
+
+      - name: Construire le site
+        run: zensical build
+
+      - name: Préparer l'artefact Pages
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  publier:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - name: Publier sur GitHub Pages
+        id: deploiement
+        uses: actions/deploy-pages@v5
